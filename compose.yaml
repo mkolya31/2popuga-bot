@@ -1,0 +1,38 @@
+services:
+  bot:
+    container_name: 2popuga-bot
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
+    environment:
+      ALLOWED_CHAT_ID: ${ALLOWED_CHAT_ID:-}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      BOT_UPDATE_MODE: ${BOT_UPDATE_MODE:-webhook}
+      NODE_ENV: production
+      PORT: 3000
+      TZ: Europe/Moscow
+      WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL:-https://2popuga.kolyach.me}
+      WEBHOOK_PATH: ${WEBHOOK_PATH:-/telegram/webhook}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+    volumes:
+      - bot-data:/app/data
+    networks:
+      proxy:
+        aliases:
+          - 2popuga-bot
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  proxy:
+    external: true
+    name: kolyachmesite_default
+
+volumes:
+  bot-data:

@@ -1,0 +1,83 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://2popuga.kolyach.me
+
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        shell: bash
+        run: |
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/deploy_key"
+          chmod 0600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy application
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        shell: bash
+        run: |
+          ssh \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "$VPS_PORT" \
+            "$VPS_USER@$VPS_HOST" \
+            'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+
+          readonly app_dir="/opt/2popuga-bot"
+          readonly repository_url="https://github.com/mkolya31/2popuga-bot.git"
+
+          if [[ ! -d "$app_dir/.git" ]]; then
+            if [[ -n "$(find "$app_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+              echo "$app_dir exists and is not empty" >&2
+              exit 1
+            fi
+
+            git clone \
+              --branch production \
+              --single-branch \
+              "$repository_url" \
+              "$app_dir"
+          fi
+
+          bash "$app_dir/deploy/deploy.sh"
+          REMOTE
+
+      - name: Verify public health endpoint
+        shell: bash
+        run: |
+          curl \
+            --fail \
+            --show-error \
+            --silent \
+            --retry 12 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            https://2popuga.kolyach.me/healthz
