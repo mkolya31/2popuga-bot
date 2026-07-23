@@ -14,7 +14,22 @@ if [[ ! -f .env ]]; then
   install -m 0600 /dev/null .env
 fi
 
-docker compose up --detach --build --remove-orphans
+readonly MAX_DEPLOY_ATTEMPTS=3
+
+for attempt in $(seq 1 "$MAX_DEPLOY_ATTEMPTS"); do
+  if docker compose up --detach --build --remove-orphans; then
+    break
+  fi
+
+  if [[ "$attempt" -eq "$MAX_DEPLOY_ATTEMPTS" ]]; then
+    echo "Docker Compose failed after $MAX_DEPLOY_ATTEMPTS attempts" >&2
+    exit 1
+  fi
+
+  retry_delay=$((attempt * 15))
+  echo "Docker Compose failed, retrying in $retry_delay seconds" >&2
+  sleep "$retry_delay"
+done
 
 container_id="$(docker compose ps --quiet bot)"
 
