@@ -17,7 +17,8 @@ npm ci
 ```
 
 При необходимости скопируйте `.env.example` в `.env` и задайте локальные
-значения. На этапе каркаса для запуска достаточно значения `PORT`.
+значения. Для запуска обязательны `BOT_TOKEN`, `ALLOWED_CHAT_ID`,
+`WEBHOOK_BASE_URL` и `WEBHOOK_SECRET`.
 
 ## Команды
 
@@ -35,7 +36,8 @@ npm ci
 После запуска доступны:
 
 - `GET /healthz` — проверка работы HTTP-процесса;
-- `GET /readyz` — проверка готовности приложения.
+- `GET /readyz` — проверка регистрации Telegram webhook;
+- `POST /telegram/webhook` — приём Telegram updates.
 
 ## Production
 
