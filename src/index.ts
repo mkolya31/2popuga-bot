@@ -1,28 +1,74 @@
-import { createApp } from "./app.js";
-import { resolvePort } from "./config.js";
+import type { Server } from "node:http";
 
-const port = resolvePort();
-const app = createApp();
+import { createApp, type ApplicationState } from "./app.js";
+import { createBotRuntime } from "./bot.js";
+import { loadConfig } from "./config.js";
 
-const server = app.listen(port, () => {
-  console.log(`HTTP server is listening on port ${port}`);
-});
+async function closeServer(server: Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
 
-function shutdown(signal: NodeJS.Signals): void {
-  console.log(`Received ${signal}, shutting down`);
-
-  server.close((error) => {
-    if (error) {
-      console.error("Failed to close HTTP server", error);
-      process.exitCode = 1;
-    }
+      resolve();
+    });
   });
 }
 
-process.once("SIGINT", () => {
-  shutdown("SIGINT");
-});
+async function main(): Promise<void> {
+  const config = loadConfig();
+  const state: ApplicationState = { ready: false };
+  const botRuntime = createBotRuntime(config);
+  const app = createApp({
+    state,
+    webhookHandler: botRuntime.webhookHandler,
+    webhookPath: config.webhook.path,
+  });
 
-process.once("SIGTERM", () => {
-  shutdown("SIGTERM");
+  const server = app.listen(config.port, () => {
+    console.log(`HTTP server is listening on port ${config.port}`);
+  });
+
+  try {
+    await botRuntime.initialize();
+    state.ready = true;
+  } catch (error) {
+    console.error("Failed to initialize Telegram webhook", error);
+    await closeServer(server);
+    throw error;
+  }
+
+  let shuttingDown = false;
+
+  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+    if (shuttingDown) {
+      return;
+    }
+
+    shuttingDown = true;
+    state.ready = false;
+    console.log(`Received ${signal}, shutting down`);
+
+    try {
+      await closeServer(server);
+    } catch (error) {
+      console.error("Failed to close HTTP server", error);
+      process.exitCode = 1;
+    }
+  };
+
+  process.once("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
+
+  process.once("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+}
+
+void main().catch((error: unknown) => {
+  console.error("Application failed to start", error);
+  process.exitCode = 1;
 });

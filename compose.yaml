@@ -10,7 +10,6 @@ services:
     environment:
       ALLOWED_CHAT_ID: ${ALLOWED_CHAT_ID:-}
       BOT_TOKEN: ${BOT_TOKEN:-}
-      BOT_UPDATE_MODE: ${BOT_UPDATE_MODE:-webhook}
       NODE_ENV: production
       PORT: 3000
       TZ: Europe/Moscow
