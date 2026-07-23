@@ -1,0 +1,34 @@
+name: Production source guard
+
+on:
+  pull_request_target:
+    branches:
+      - production
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+
+permissions:
+  contents: read
+
+jobs:
+  source-branch:
+    name: PR source is develop
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate source branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          if [[ "$HEAD_REF" != "develop" || "$HEAD_REPO" != "$BASE_REPO" ]]; then
+            echo "::error::production accepts pull requests only from develop in this repository"
+            exit 1
+          fi
+
+          echo "Source branch is valid: develop"
