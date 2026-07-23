@@ -3,6 +3,8 @@ import type { Server } from "node:http";
 import { createApp, type ApplicationState } from "./app.js";
 import { createBotRuntime } from "./bot.js";
 import { loadConfig } from "./config.js";
+import { ensureAppState } from "./database/app-state.js";
+import { openDatabase } from "./database/sqlite.js";
 
 async function closeServer(server: Server): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -19,6 +21,8 @@ async function closeServer(server: Server): Promise<void> {
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  const database = openDatabase(config.databasePath);
+  ensureAppState(database, config.timeZone);
   const state: ApplicationState = { ready: false };
   const botRuntime = createBotRuntime(config);
   const app = createApp({
@@ -37,6 +41,7 @@ async function main(): Promise<void> {
   } catch (error) {
     console.error("Failed to initialize Telegram webhook", error);
     await closeServer(server);
+    database.close();
     throw error;
   }
 
@@ -55,6 +60,13 @@ async function main(): Promise<void> {
       await closeServer(server);
     } catch (error) {
       console.error("Failed to close HTTP server", error);
+      process.exitCode = 1;
+    }
+
+    try {
+      database.close();
+    } catch (error) {
+      console.error("Failed to close SQLite database", error);
       process.exitCode = 1;
     }
   };

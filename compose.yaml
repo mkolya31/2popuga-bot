@@ -10,6 +10,7 @@ services:
     environment:
       ALLOWED_CHAT_ID: ${ALLOWED_CHAT_ID:-}
       BOT_TOKEN: ${BOT_TOKEN:-}
+      DATABASE_PATH: ${DATABASE_PATH:-/app/data/2popuga.sqlite}
       NODE_ENV: production
       PORT: 3000
       TZ: Europe/Moscow
