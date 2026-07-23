@@ -1,4 +1,4 @@
-FROM node:24-bookworm AS build
+FROM public.ecr.aws/docker/library/node:24-bookworm AS build
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY src ./src
 RUN npm run build
 RUN npm prune --omit=dev
 
-FROM node:24-bookworm-slim AS runtime
+FROM public.ecr.aws/docker/library/node:24-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
 ENV PORT=3000
