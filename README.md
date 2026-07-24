@@ -45,6 +45,15 @@ SQLite хранит данные по пути `DATABASE_PATH` (по умолч�
 
 ## Production
 
+Production-контейнер бота использует сетевое пространство отдельного
+AmneziaWG-sidecar. VPN применяется только к боту и не изменяет маршруты VPS,
+NGINX или других сервисов.
+
+Конфигурация AmneziaWG должна находиться на сервере по пути
+`/opt/2popuga-bot/secrets/amneziawg.conf` с правами `0600`. Каталог `secrets`
+исключён из Git и Docker build context. Путь можно переопределить переменной
+`AMNEZIAWG_CONFIG_PATH`.
+
 Production-развёртывание выполняется при push в ветку `production`:
 
 1. GitHub Actions подключается к VPS по SSH.
