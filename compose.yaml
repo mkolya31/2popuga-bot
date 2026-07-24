@@ -15,6 +15,9 @@ services:
       - no-new-privileges:true
     environment:
       AWG_INTERFACE: awg0
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     volumes:
       - ${AMNEZIAWG_CONFIG_PATH:-./secrets/amneziawg.conf}:/run/secrets/amneziawg.conf:ro
     networks:
