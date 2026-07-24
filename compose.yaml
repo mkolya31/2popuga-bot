@@ -13,8 +13,6 @@ services:
       - /dev/net/tun:/dev/net/tun
     security_opt:
       - no-new-privileges:true
-    sysctls:
-      net.ipv4.conf.all.src_valid_mark: "1"
     environment:
       AWG_INTERFACE: awg0
     volumes:
