@@ -70,110 +70,92 @@ VPS расположен в России. Исходящее TCP-соедине�
 делит сетевое пространство только с контейнером бота, поэтому маршруты VPS,
 NGINX и остальных сервисов не меняются.
 
-## Последний подтверждённый результат VPN
+## Подтверждённое production-состояние
 
-Тестовый контейнер `2popuga-vpn-test` успешно:
+VPN и webhook полностью проверены 24 июля 2026 года. Production до текущих
+локальных изменений находился на merge-коммите `1d4ab20`.
 
-- создал интерфейс `awg0`;
-- установил handshake с peer `194.58.39.157:36354`;
-- получил и отправил данные;
-- направил default route через `awg0`;
-- сохранил отдельный маршрут до VPN endpoint через Docker gateway.
+- Контейнеры `vpn` и `bot` имеют статус `healthy`, перезапусков нет.
+- DNS внутри VPN использует `1.1.1.1` и `1.0.0.1`.
+- `awg0` устанавливает handshake и передаёт данные.
+- На VPS нет kernel-модуля AmneziaWG, поэтому ожидаемо используется
+  userspace-реализация `amneziawg-go`.
+- Временный Node.js-контейнер в сетевом пространстве VPN получил HTTP 200 от
+  `https://api.telegram.org`.
+- `/healthz` возвращает `{"status":"ok"}`.
+- `/readyz` возвращает `{"status":"ready"}`.
+- Telegram webhook зарегистрирован для `@two_popuga_bot`.
+- Команда из разрешённой группы дошла как `POST /telegram/webhook` с HTTP 200;
+  `pending_update_count` после обработки был равен нулю.
+- В production установлена версия `better-sqlite3` 12.11.1.
 
-Проверка `wget https://api.telegram.org` не прошла только из-за DNS. При этом
-явный запрос:
+Строка `Error: Unknown device type.` при старте VPN не является аварией: сразу
+после неё `awg-quick` переходит на `amneziawg-go`.
 
-```bash
-nslookup api.telegram.org 1.1.1.1
+Первый production-запуск уже состоялся, исходная точка расписания сохранена в
+SQLite. Docker volume `bot-data` нельзя удалять при обычных деплоях.
+
+## Текущая локальная работа
+
+В рабочем дереве реализован первый пользовательский срез MVP:
+
+- обработка только настроенного `ALLOWED_CHAT_ID`;
+- команда `/start` и главная inline-панель;
+- отметки замены воды, корма и мытья поддона;
+- расчёт следующего срока от фактического времени;
+- защита от повторной отметки той же процедуры в течение пяти минут;
+- статус всех процедур с учётом исходной точки;
+- отмена только автором и только самой новой записи процедуры;
+- сохранение отменённых записей для аудита;
+- удаление старой кнопки отмены после новой отметки.
+
+Проверки текущего среза:
+
+```text
+7 test files passed
+57 tests passed
+ESLint passed
+TypeScript typecheck passed
+Production build passed
 ```
-
-успешно вернул адрес Telegram. Поэтому в сервис `vpn` в `compose.yaml` добавлены
-DNS-серверы `1.1.1.1` и `1.0.0.1`.
 
 ## Следующий шаг
 
-Сначала проверить на VPS последнюю DNS-правку до слияния в `production`.
+Сначала опубликовать текущий пользовательский срез обычным процессом:
 
-После появления коммита с DNS-правкой в `origin/develop` выполнить на VPS:
+1. проверить diff;
+2. создать коммит в `develop` и push;
+3. создать pull request `develop` → `production`;
+4. дождаться успешного deployment action;
+5. проверить `/healthz`, `/readyz`, `docker compose ps` и логи.
 
-```bash
-cd /opt/2popuga-bot
-git fetch origin develop
-git rev-parse --short FETCH_HEAD
-git show FETCH_HEAD:compose.yaml | sed -n '1,40p'
-```
+Затем выполнить live-проверку в разрешённой Telegram-группе:
 
-Пересобрать тестовый VPN-образ из полученной версии `develop`:
+1. `/start@two_popuga_bot`;
+2. отметить одну процедуру и проверить текст подтверждения и новый срок;
+3. нажать ту же кнопку повторно в течение пяти минут и убедиться, что второй
+   event не создан;
+4. открыть статус;
+5. проверить запрет отмены другим участником;
+6. отменить запись её автором и проверить пересчитанный срок.
 
-```bash
-git archive FETCH_HEAD | docker build \
-  --file deploy/amneziawg/Dockerfile \
-  --tag 2popuga-vpn:test \
-  -
-```
+Проверочные записи сохраняются в production SQLite. После теста созданную запись
+следует отменить её автором, чтобы вернуть расписание к исходному состоянию.
 
-Удалить прежний тестовый контейнер, если он существует:
+Следующий этап разработки после live-проверки — напоминания:
 
-```bash
-docker rm --force 2popuga-vpn-test 2>/dev/null || true
-```
+- минутная проверка сроков;
+- одно жёлтое напоминание при наступлении срока;
+- красное напоминание через 24 часа и каждые следующие 24 часа;
+- только одно актуальное напоминание после простоя;
+- закрытие кнопок всех активных напоминаний после выполнения;
+- тесты планировщика с управляемым временем.
 
-Запустить sidecar с внешними DNS-серверами:
-
-```bash
-docker run --detach \
-  --name 2popuga-vpn-test \
-  --cap-add NET_ADMIN \
-  --device /dev/net/tun:/dev/net/tun \
-  --security-opt no-new-privileges:true \
-  --dns 1.1.1.1 \
-  --dns 1.0.0.1 \
-  --env AWG_INTERFACE=awg0 \
-  --volume /opt/2popuga-bot/secrets/amneziawg.conf:/run/secrets/amneziawg.conf:ro \
-  2popuga-vpn:test
-```
-
-Проверить контейнер, handshake, DNS и Telegram API:
-
-```bash
-docker ps --filter name=2popuga-vpn-test
-docker exec 2popuga-vpn-test awg show awg0
-docker exec 2popuga-vpn-test nslookup api.telegram.org
-docker exec 2popuga-vpn-test /usr/local/bin/amneziawg-healthcheck \
-  && echo "Telegram API доступен через VPN"
-```
-
-Если healthcheck успешен, проверить сетевое пространство будущего контейнера
-бота отдельным временным контейнером:
-
-```bash
-docker run --rm \
-  --network container:2popuga-vpn-test \
-  public.ecr.aws/docker/library/node:24-bookworm-slim \
-  node -e "fetch('https://api.telegram.org', { signal: AbortSignal.timeout(10000) }).then(r => console.log(r.status)).catch(e => { console.error(e.cause?.code ?? e.name); process.exit(1) })"
-```
-
-Ожидается HTTP-ответ Telegram без `TimeoutError`.
-
-После успешной проверки:
-
-1. удалить тестовый контейнер;
-2. создать pull request `develop` → `production`;
-3. дождаться успешного production deploy;
-4. проверить `https://2popuga.kolyach.me/healthz`;
-5. проверить `https://2popuga.kolyach.me/readyz`;
-6. проверить логи `docker compose logs --tail=100 vpn bot`;
-7. отправить боту сообщение в разрешённой Telegram-группе.
-
-## Важное замечание о первом production-запуске
-
-SQLite фиксирует исходную точку расписания при первом полноценном запуске.
-VPN-изменения пока не следует сливать в `production`, пока доступ к Telegram API
-не подтверждён, чтобы не создавать исходное расписание раньше времени.
-
-## Последние значимые коммиты до DNS-правки
+## Последние значимые коммиты
 
 ```text
+7cbb6d4 fix: use prebuilt better-sqlite3 release
+2ba780e fix: configure VPN DNS and add development handoff
 a83c97b fix: configure VPN routing inside container namespace
 b0f9a13 fix: normalize empty AmneziaWG legacy parameters
 1e95973 feat: route bot traffic through AmneziaWG

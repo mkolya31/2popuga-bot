@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   const database = openDatabase(config.databasePath);
   ensureAppState(database, config.timeZone);
   const state: ApplicationState = { ready: false };
-  const botRuntime = createBotRuntime(config);
+  const botRuntime = createBotRuntime(config, database);
   const app = createApp({
     state,
     webhookHandler: botRuntime.webhookHandler,
