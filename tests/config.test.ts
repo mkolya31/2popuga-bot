@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from "../src/config.js";
 const validEnvironment = {
   ALLOWED_CHAT_ID: "-1001234567890",
   BOT_TOKEN: "123456:test-token",
+  DATABASE_PATH: "./test-data/bot.sqlite",
   NODE_ENV: "production",
   PORT: "8080",
   TZ: "Europe/Moscow",
@@ -20,6 +21,7 @@ describe("loadConfig", () => {
     expect(config).toEqual({
       allowedChatId: -1_001_234_567_890,
       botToken: "123456:test-token",
+      databasePath: "./test-data/bot.sqlite",
       nodeEnv: "production",
       port: 8080,
       timeZone: "Europe/Moscow",
@@ -41,9 +43,16 @@ describe("loadConfig", () => {
     });
 
     expect(config.nodeEnv).toBe("development");
+    expect(config.databasePath).toBe("./data/2popuga.sqlite");
     expect(config.port).toBe(3000);
     expect(config.timeZone).toBe("Europe/Moscow");
     expect(config.webhook.path).toBe("/telegram/webhook");
+  });
+
+  it("rejects a database path containing a null byte", () => {
+    expect(() =>
+      loadConfig({ ...validEnvironment, DATABASE_PATH: "./data/\0bot.sqlite" }),
+    ).toThrow("DATABASE_PATH must not contain null bytes");
   });
 
   it("reports all missing required values without exposing secrets", () => {

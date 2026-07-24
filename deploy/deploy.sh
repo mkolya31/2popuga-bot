@@ -23,6 +23,8 @@ for attempt in $(seq 1 "$MAX_DEPLOY_ATTEMPTS"); do
 
   if [[ "$attempt" -eq "$MAX_DEPLOY_ATTEMPTS" ]]; then
     echo "Docker Compose failed after $MAX_DEPLOY_ATTEMPTS attempts" >&2
+    docker compose ps
+    docker compose logs --tail 100 vpn bot
     exit 1
   fi
 
@@ -59,5 +61,5 @@ done
 
 echo "Bot container did not become healthy" >&2
 docker compose ps
-docker compose logs --tail 100 bot
+docker compose logs --tail 100 vpn bot
 exit 1

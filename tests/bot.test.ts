@@ -9,6 +9,7 @@ import type { AppConfig } from "../src/config.js";
 const config: AppConfig = {
   allowedChatId: -1_001_234_567_890,
   botToken: "123456:test-token",
+  databasePath: ":memory:",
   nodeEnv: "test",
   port: 3000,
   timeZone: "Europe/Moscow",

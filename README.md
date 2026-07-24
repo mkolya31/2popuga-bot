@@ -16,6 +16,10 @@ Telegram-бот для фиксации процедур ухода за поп�
 npm ci
 ```
 
+SQLite хранит данные по пути `DATABASE_PATH` (по умолчанию
+`./data/2popuga.sqlite`). При первом запуске каталог и схема базы данных
+создаются автоматически.
+
 При необходимости скопируйте `.env.example` в `.env` и задайте локальные
 значения. Для запуска обязательны `BOT_TOKEN`, `ALLOWED_CHAT_ID`,
 `WEBHOOK_BASE_URL` и `WEBHOOK_SECRET`.
@@ -40,6 +44,15 @@ npm ci
 - `POST /telegram/webhook` — приём Telegram updates.
 
 ## Production
+
+Production-контейнер бота использует сетевое пространство отдельного
+AmneziaWG-sidecar. VPN применяется только к боту и не изменяет маршруты VPS,
+NGINX или других сервисов.
+
+Конфигурация AmneziaWG должна находиться на сервере по пути
+`/opt/2popuga-bot/secrets/amneziawg.conf` с правами `0600`. Каталог `secrets`
+исключён из Git и Docker build context. Путь можно переопределить переменной
+`AMNEZIAWG_CONFIG_PATH`.
 
 Production-развёртывание выполняется при push в ветку `production`:
 

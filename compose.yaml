@@ -1,15 +1,57 @@
 services:
+  vpn:
+    container_name: 2popuga-vpn
+    build:
+      context: .
+      dockerfile: deploy/amneziawg/Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      AWG_INTERFACE: awg0
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
+    volumes:
+      - ${AMNEZIAWG_CONFIG_PATH:-./secrets/amneziawg.conf}:/run/secrets/amneziawg.conf:ro
+    networks:
+      proxy:
+        aliases:
+          - 2popuga-bot
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/amneziawg-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 6
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   bot:
     container_name: 2popuga-bot
     build:
       context: .
       target: runtime
+    depends_on:
+      vpn:
+        condition: service_healthy
     restart: unless-stopped
     init: true
     stop_grace_period: 20s
+    network_mode: service:vpn
     environment:
       ALLOWED_CHAT_ID: ${ALLOWED_CHAT_ID:-}
       BOT_TOKEN: ${BOT_TOKEN:-}
+      DATABASE_PATH: ${DATABASE_PATH:-/app/data/2popuga.sqlite}
       NODE_ENV: production
       PORT: 3000
       TZ: Europe/Moscow
@@ -18,10 +60,6 @@ services:
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
     volumes:
       - bot-data:/app/data
-    networks:
-      proxy:
-        aliases:
-          - 2popuga-bot
     logging:
       driver: json-file
       options:

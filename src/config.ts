@@ -1,6 +1,7 @@
 const DEFAULT_PORT = 3000;
 const DEFAULT_TIME_ZONE = "Europe/Moscow";
 const DEFAULT_WEBHOOK_PATH = "/telegram/webhook";
+const DEFAULT_DATABASE_PATH = "./data/2popuga.sqlite";
 const MINIMUM_WEBHOOK_SECRET_LENGTH = 32;
 
 type Environment = Record<string, string | undefined>;
@@ -8,6 +9,7 @@ type Environment = Record<string, string | undefined>;
 export interface AppConfig {
   allowedChatId: number;
   botToken: string;
+  databasePath: string;
   nodeEnv: "development" | "test" | "production";
   port: number;
   timeZone: string;
@@ -31,6 +33,7 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
 
   const botToken = readRequired(environment, "BOT_TOKEN", problems);
   const allowedChatId = parseChatId(environment.ALLOWED_CHAT_ID, problems);
+  const databasePath = parseDatabasePath(environment.DATABASE_PATH, problems);
   const nodeEnv = parseNodeEnvironment(environment.NODE_ENV, problems);
   const port = parsePort(environment.PORT, problems);
   const timeZone = parseTimeZone(environment.TZ, problems);
@@ -45,6 +48,7 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
   return {
     allowedChatId,
     botToken,
+    databasePath,
     nodeEnv,
     port,
     timeZone,
@@ -55,6 +59,17 @@ export function loadConfig(environment: Environment = process.env): AppConfig {
       url: new URL(webhookPath, webhookBaseUrl).toString(),
     },
   };
+}
+
+function parseDatabasePath(value: string | undefined, problems: string[]): string {
+  const databasePath = value?.trim() || DEFAULT_DATABASE_PATH;
+
+  if (databasePath.includes("\0")) {
+    problems.push("DATABASE_PATH must not contain null bytes");
+    return DEFAULT_DATABASE_PATH;
+  }
+
+  return databasePath;
 }
 
 function readRequired(environment: Environment, name: string, problems: string[]): string {
