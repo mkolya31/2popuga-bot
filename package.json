@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.1",
+    "better-sqlite3": "^12.10.0",
     "express": "^5.2.1",
     "grammy": "^1.45.1",
     "node-cron": "^4.6.0"
