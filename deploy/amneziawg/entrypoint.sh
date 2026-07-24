@@ -17,7 +17,12 @@ mkdir -p "$RUNTIME_DIRECTORY"
 
 # Docker's embedded DNS remains reachable outside the tunnel. Removing this
 # directive prevents awg-quick from trying to rewrite Docker-managed resolv.conf.
-sed '/^[[:space:]]*DNS[[:space:]]*=/d' "$SOURCE_CONFIG" > "$RUNTIME_CONFIG"
+# Amnezia exports unused Legacy I1-I5 parameters as empty assignments, while
+# the Linux awg parser expects those optional lines to be absent.
+sed \
+  -e '/^[[:space:]]*DNS[[:space:]]*=/d' \
+  -e '/^[[:space:]]*I[1-5][[:space:]]*=[[:space:]]*$/d' \
+  "$SOURCE_CONFIG" > "$RUNTIME_CONFIG"
 
 cleanup() {
   awg-quick down "$RUNTIME_CONFIG" >/dev/null 2>&1 || true
